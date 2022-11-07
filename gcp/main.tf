@@ -10,38 +10,11 @@ resource "google_compute_subnetwork" "vm_subnet" {
   network       = google_compute_network.vpc_network.id
 }
 
-resource "google_compute_firewall" "fw" {
-  name    = "${var.name}-fw"
-  network = google_compute_network.vpc_network.id
-
-  allow {
-    protocol = "tcp"
-    ports    = ["80"]
-  }
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
-  }
-
-  direction     = "INGRESS"
-  source_ranges = ["0.0.0.0/0"]
-  #target_tags   = ["http-server"]
-}
-
-/*
-resource "google_service_account" "default" {
-  account_id   = "${var.name}-vm-sa"
-  display_name = "VM sa"
-}
-*/
-
 resource "google_compute_instance" "default" {
   name         = "${var.name}-vm"
   machine_type = "e2-micro"
   zone         = var.zone
-
-  tags = ["http-server"]
+  tags = ["ssh"]
 
   boot_disk {
     initialize_params {
@@ -60,19 +33,30 @@ resource "google_compute_instance" "default" {
 
   }
 }
-/*
-metadata = {
-    #    ssh-keys = "${var.vm_username}:${var.vm_ssh_pub_key}"
+
+resource "google_compute_firewall" "ssh" {
+  name = "allow-ssh"
+  allow {
+    ports    = ["22"]
+    protocol = "tcp"
   }
-  #metadata_startup_script = file("startup.sh")
+  direction     = "INGRESS"
+  network       = google_compute_network.vpc_network.id
+  priority      = 1000
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["ssh"]
 }
 
-  service_account {
-    email  = google_service_account.default.email
-    scopes = ["cloud-platform"]
+resource "google_compute_firewall" "nginx" {
+  name    = "nginx-app-firewall"
+  network = google_compute_network.vpc_network.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
   }
+  source_ranges = ["0.0.0.0/0"]
 }
-*/
 
 // A variable for extracting the external IP address of the VM
 output "Web-server-URL" {
